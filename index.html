@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hisaab — my money envelopes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E7EEEA; --surface:#FFFFFF; --surface2:#F3F7F5; --ink:#15302A; --muted:#5A6D67; --line:#D2DDD8;
+  --accent:#0E6B5A; --accent-ink:#FFFFFF; --good:#23794A; --bad:#B0374A; --warn:#A5561B;
+  --shadow:0 1px 0 rgba(21,48,42,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1715; --surface:#15221F; --surface2:#1B2B27; --ink:#E2ECE8; --muted:#94A9A2; --line:#263833;
+    --accent:#4DBFA3; --accent-ink:#06201A; --good:#5BC98A; --bad:#EE7C8E; --warn:#E6A15F; --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1715; --surface:#15221F; --surface2:#1B2B27; --ink:#E2ECE8; --muted:#94A9A2; --line:#263833;
+  --accent:#4DBFA3; --accent-ink:#06201A; --good:#5BC98A; --bad:#EE7C8E; --warn:#E6A15F; --shadow:none;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Rubik",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;padding:0 16px calc(96px + env(safe-area-inset-bottom))}
+.num{font-variant-numeric:tabular-nums}
+
+header.top{display:flex;align-items:center;justify-content:space-between;padding:20px 2px 10px}
+.brand{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.brand small{display:block;font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0}
+.sync{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync i{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block}
+.sync.cloud i{background:var(--good)} .sync.error i{background:var(--bad)}
+
+h2{font-size:18px;font-weight:600;margin:26px 2px 10px}
+.muted{color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+
+/* summary sentences */
+.summary{padding:6px 16px}
+.summary .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid var(--line)}
+.summary .row:last-child{border-bottom:0}
+.summary .row span:first-child{color:var(--muted)}
+.summary .row b{font-weight:600;font-size:17px}
+
+/* envelopes — the signature element */
+.envs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.env{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;text-align:left;padding:0;box-shadow:var(--shadow);width:100%}
+.env .flap{height:46px;background:var(--pc);clip-path:polygon(0 0,100% 0,50% 100%);opacity:.92}
+.env .seal{position:absolute;top:26px;left:50%;transform:translateX(-50%);width:40px;height:40px;border-radius:50%;background:var(--surface);border:2px solid var(--pc);display:grid;place-items:center;font-size:19px}
+.env .body{padding:22px 12px 12px}
+.env .name{font-weight:600;font-size:15px;text-align:center}
+.env .real{font-size:21px;font-weight:700;text-align:center;margin:2px 0 8px;letter-spacing:-.01em}
+.env .lines{font-size:12.5px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;display:grid;gap:2px}
+.env .lines div{display:flex;justify-content:space-between;gap:6px}
+.env .lines .o{color:var(--warn)} .env .lines .g{color:var(--good)}
+.neg{color:var(--bad)}
+
+/* owes list */
+.debt{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.debt:last-child{border-bottom:0}
+.debt .txt{flex:1;font-size:15px}
+.debt .txt b{font-weight:600}
+.btn{border:0;border-radius:12px;padding:10px 14px;font-weight:600;background:var(--accent);color:var(--accent-ink)}
+.btn.soft{background:var(--surface2);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn.small{padding:7px 11px;font-size:14px;border-radius:10px}
+.btn.wide{width:100%;padding:14px;font-size:17px}
+.tip{padding:13px 14px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.tip:last-child{border-bottom:0}
+.tip p{margin:0;font-size:15px}
+.empty{padding:22px 16px;text-align:center;color:var(--muted)}
+.empty .btn{margin-top:12px}
+
+/* history */
+.filters{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 8px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 13px;font-size:14px;white-space:nowrap}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.search{display:flex;gap:8px;margin-bottom:8px}
+.search input,.search select{flex:1;min-width:0}
+input.f,select.f,textarea.f{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px 13px;font-size:16px}
+.dayhead{font-size:13px;color:var(--muted);margin:16px 4px 6px}
+.tx{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.tx:last-child{border-bottom:0}
+.tx .ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;font-size:18px;background:var(--surface2);border-left:4px solid var(--pc);flex:none}
+.tx .mid{flex:1;min-width:0}
+.tx .t1{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx .t2{font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx .amt{font-weight:600;white-space:nowrap}
+.amt.in{color:var(--good)} .amt.out{color:var(--ink)} .amt.mv{color:var(--muted)}
+
+/* reports */
+.rtable{width:100%;border-collapse:collapse;font-size:15px}
+.rtable th,.rtable td{padding:10px 12px;text-align:right;border-bottom:1px solid var(--line)}
+.rtable th:first-child,.rtable td:first-child{text-align:left}
+.rtable th{font-weight:500;color:var(--muted);font-size:13px}
+.rtable tr:last-child td{border-bottom:0}
+.bar{padding:9px 14px}
+.bar .lbl{display:flex;justify-content:space-between;font-size:14px;margin-bottom:5px}
+.bar .track{height:9px;border-radius:6px;background:var(--surface2);overflow:hidden}
+.bar .fill{height:100%;background:var(--pc,var(--accent));border-radius:6px}
+
+/* bottom nav */
+nav.bottom{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom));z-index:20}
+nav.bottom .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
+nav.bottom button{background:none;border:0;display:grid;justify-items:center;gap:2px;font-size:12px;color:var(--muted);padding:6px 0}
+nav.bottom button svg{width:23px;height:23px}
+nav.bottom button[aria-current="page"]{color:var(--accent);font-weight:600}
+nav.bottom .add{width:56px;height:56px;border-radius:18px;background:var(--accent);color:var(--accent-ink)!important;margin:-22px auto 0;place-items:center;box-shadow:0 6px 16px rgba(14,107,90,.35)}
+nav.bottom .add svg{width:28px;height:28px}
+
+/* sheet & modal */
+.overlay{position:fixed;inset:0;background:rgba(5,15,12,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;border-radius:22px 22px 0 0;padding:8px 16px calc(22px + env(safe-area-inset-bottom));animation:up .22s ease-out}
+@media (min-width:600px){.overlay{align-items:center}.sheet{border-radius:22px;max-height:88vh}}
+@keyframes up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.grab{width:42px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 10px}
+.sheet h3{font-size:21px;margin:4px 0 4px;font-weight:600}
+.sheet .sub{color:var(--muted);margin:0 0 14px;font-size:15px}
+.field{margin:14px 0}
+.field > label,.field > .lab{display:block;font-weight:500;margin-bottom:7px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.pchip{border:1.5px solid var(--line);background:var(--surface);border-radius:12px;padding:8px 11px;font-size:14.5px;display:flex;align-items:center;gap:6px}
+.pchip[aria-pressed="true"]{border-color:var(--pc,var(--accent));background:var(--surface2);box-shadow:inset 0 0 0 1px var(--pc,var(--accent));font-weight:600}
+.amount{font-size:28px!important;font-weight:600;padding:12px 14px!important}
+.explain{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:11px 13px;font-size:14.5px}
+.explain .w{color:var(--warn);display:block;margin-top:4px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.actions{display:flex;gap:10px;margin-top:18px}
+.actions .btn{flex:1;padding:14px}
+.choice{display:flex;gap:14px;align-items:center;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:10px}
+.choice .big{font-size:26px;width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:var(--surface2);flex:none}
+.choice b{display:block;font-size:17px;font-weight:600}
+.choice span{color:var(--muted);font-size:14px}
+.pb{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.pb input[type=checkbox]{width:20px;height:20px;accent-color:var(--accent)}
+.pb .t{flex:1;font-size:15px}
+.pb input.f{width:120px;padding:8px 10px}
+
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:60;font-size:15px;max-width:90vw}
+.list-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.list-row:last-child{border-bottom:0}
+.list-row .mid{flex:1}
+.list-row .t2{font-size:13px;color:var(--muted)}
+.help{font-size:13.5px;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">Hisaab<small id="subtitle">Every rupee in its envelope</small></div>
+    <div class="sync" id="sync"><i></i><span>Saved on this device</span></div>
+  </header>
+  <main id="view"></main>
+</div>
+
+<nav class="bottom" aria-label="Main">
+  <div class="in">
+    <button data-nav="home" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 8l9 6 9-6"/></svg>Envelopes</button>
+    <button data-nav="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>History</button>
+    <button class="add" data-nav="add" aria-label="Add a record"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button data-nav="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>Reports</button>
+    <button data-nav="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 11-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 110-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 114 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 110 4h-.1a1.7 1.7 0 00-1.5 1z"/></svg>More</button>
+  </div>
+</nav>
+
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const pad = n => String(n).padStart(2, '0');
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+const thisMonth = () => today().slice(0, 7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Math.abs(n).toLocaleString('en-US', {maximumFractionDigits: 2});
+const money = n => (n < -0.004 ? '−' : '') + 'Rs ' + fmt(n);
+const monthLabel = ym => { const [y, m] = ym.split('-'); return new Date(+y, +m - 1, 1).toLocaleString('en', {month: 'long', year: 'numeric'}); };
+const dayLabel = d => { const [y, m, dd] = d.split('-'); const dt = new Date(+y, +m - 1, +dd); if (d === today()) return 'Today'; const yst = new Date(); yst.setDate(yst.getDate() - 1); if (d === yst.getFullYear() + '-' + pad(yst.getMonth() + 1) + '-' + pad(yst.getDate())) return 'Yesterday'; return dt.toLocaleString('en', {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'}); };
+
+/* ---------- data ---------- */
+const DEFAULT_POCKETS = [
+  {id:'salary',  name:'My Salary',     emoji:'💼', color:'#2F8A57', kind:'mine',   note:'Your own money', spend:'My personal expense', cats:['Food','Transport','Bills','Shopping','Family','Health','Mobile & internet','Other']},
+  {id:'donor',   name:'Donor Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the Welfare Board', spend:'Submitted to Welfare Board', handover:'Welfare Board', cats:['Submitted to Welfare Board','Other']},
+  {id:'scout',   name:'Scouting Fund', emoji:'⚜️', color:'#A7801E', kind:'held',   note:'Money for scouting work', spend:'Scouting expense', cats:['Camp','Uniform & badges','Travel','Food','Equipment','Event','Other']},
+  {id:'support', name:'Support Fund',  emoji:'🫶', color:'#B2476B', kind:'held',   note:'From donors, to give to people in need', spend:'Support given to someone', cats:['Medical help','Education help','Ration','Cash help','Other']},
+  {id:'home',    name:'Home Cash',     emoji:'🏠', color:'#5E707A', kind:'lender', note:'Family money you borrow and return', cats:[]}
+];
+const KIND_LABEL = {mine:'My own money', held:'Holding for others', lender:'I borrow from here'};
+let book = {v:1, pockets: structuredClone(DEFAULT_POCKETS), txns: []};
+
+const LS = 'hisaab-book-v1';
+function loadLocal(){ try { const raw = localStorage.getItem(LS); if (raw) { const b = JSON.parse(raw); if (b && Array.isArray(b.pockets) && Array.isArray(b.txns)) book = b; } } catch(e){} }
+function saveLocal(){ try { localStorage.setItem(LS, JSON.stringify(book)); } catch(e){} }
+
+const PK = id => book.pockets.find(p => p.id === id) || {id, name:'(removed)', emoji:'❔', color:'#888', kind:'held', cats:[]};
+const SPEND_DEFAULT = {salary:'My personal expense', donor:'Submitted to Welfare Board', scout:'Scouting expense', support:'Support given to someone'};
+const spendName = p => p.spend || SPEND_DEFAULT[p.id] || (p.name + ' expense');
+const spendPlural = p => { const n = spendName(p); return /expense$/i.test(n) ? n + 's' : n; };
+const spendable = () => book.pockets.filter(p => p.kind !== 'lender');
+
+/* ---------- the accounting engine ---------- */
+function compute(){
+  const cash = {}, inT = {}, outT = {}, owe = {};
+  book.pockets.forEach(p => { cash[p.id] = 0; inT[p.id] = 0; outT[p.id] = 0; });
+  const addOwe = (a, b, v) => { if (a === b) return; const k = a + '>' + b; owe[k] = (owe[k] || 0) + v; };
+  const c0 = id => { if (cash[id] === undefined) { cash[id] = 0; inT[id] = 0; outT[id] = 0; } };
+  for (const t of book.txns){
+    c0(t.pocket); if (t.from) c0(t.from);
+    if (t.t === 'in'){ cash[t.pocket] += t.amt; inT[t.pocket] += t.amt; }
+    else if (t.t === 'out'){ cash[t.from] -= t.amt; outT[t.pocket] += t.amt; addOwe(t.pocket, t.from, t.amt); }
+    else if (t.t === 'back'){ cash[t.from] -= t.amt; cash[t.pocket] += t.amt; addOwe(t.from, t.pocket, -t.amt); }
+  }
+  const ids = Object.keys(cash), debts = [];
+  for (let i = 0; i < ids.length; i++) for (let j = i + 1; j < ids.length; j++){
+    const a = ids[i], b = ids[j]; const n = (owe[a + '>' + b] || 0) - (owe[b + '>' + a] || 0);
+    if (n > 0.004) debts.push({from:a, to:b, amt:n}); else if (n < -0.004) debts.push({from:b, to:a, amt:-n});
+  }
+  debts.sort((x, y) => y.amt - x.amt);
+  const P = {};
+  ids.forEach(id => {
+    const owes = debts.filter(d => d.from === id).reduce((s, d) => s + d.amt, 0);
+    const owed = debts.filter(d => d.to === id).reduce((s, d) => s + d.amt, 0);
+    P[id] = {cash: cash[id], owes, owed, real: cash[id] - owes + owed, in: inT[id], out: outT[id]};
+  });
+  return {P, debts};
+}
+
+/* ---------- saving (account storage with device fallback) ---------- */
+let cloud = null, uid = null, knownDocs = new Set(), dirty = new Set(), flushTimer = null, flushing = false, editedBeforeConnect = false;
+const monthDoc = d => 'm-' + d.slice(0, 7);
+function markDirty(dates, settings){
+  (dates || []).forEach(d => d && dirty.add(monthDoc(d)));
+  if (settings) dirty.add('settings');
+  if (!cloud) editedBeforeConnect = true;
+  saveLocal();
+  clearTimeout(flushTimer); flushTimer = setTimeout(flush, 450);
+}
+async function flush(){
+  if (!cloud || !dirty.size) return;
+  if (flushing){ clearTimeout(flushTimer); flushTimer = setTimeout(flush, 600); return; }
+  flushing = true;
+  const keys = [...dirty]; dirty.clear();
+  try {
+    const col = cloud.collection('data/users/' + uid);
+    for (const k of keys){
+      if (k === 'settings') await col.doc('settings').set({v:1, pockets: book.pockets});
+      else await col.doc(k).set({txns: book.txns.filter(t => monthDoc(t.date) === k)});
+      knownDocs.add(k);
+    }
+    setSync('cloud');
+  } catch (e){
+    keys.forEach(k => dirty.add(k));
+    setSync('error');
+    if (!e || e.code === 'unavailable' || e.code === 'resource_exhausted'){ clearTimeout(flushTimer); flushTimer = setTimeout(flush, 4000); }
+    if (e && e.code === 'quota_exceeded') toast('Storage is full. Download a backup and clear old records.');
+  }
+  flushing = false;
+  if (dirty.size){ clearTimeout(flushTimer); flushTimer = setTimeout(flush, 500); }
+}
+function setSync(mode){
+  const el = $('#sync'); el.className = 'sync ' + mode;
+  el.querySelector('span').textContent = mode === 'cloud' ? 'Saved to your account' : mode === 'error' ? 'Not saved yet, retrying' : 'Saved on this device';
+}
+async function connect(){
+  if (!(window.claude && typeof window.claude.use === 'function')) return;
+  try {
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!db || !user) return;
+    const id = await user.id(); if (!id) return;
+    const snap = await db.collection('data/users/' + id).limit(1000).get();
+    cloud = db; uid = id;
+    if (snap.empty){
+      if (book.txns.length || JSON.stringify(book.pockets) !== JSON.stringify(DEFAULT_POCKETS)){
+        dirty.add('settings'); book.txns.forEach(t => dirty.add(monthDoc(t.date))); flush();
+      }
+    } else {
+      let pockets = null; const txns = [];
+      snap.docs.forEach(d => { knownDocs.add(d.id); const b = d.data() || {}; if (d.id === 'settings') pockets = b.pockets; else if (Array.isArray(b.txns)) txns.push(...b.txns); });
+      if (editedBeforeConnect){
+        const have = new Set(txns.map(t => t.id));
+        book.txns.forEach(t => { if (!have.has(t.id)){ txns.push(t); dirty.add(monthDoc(t.date)); } });
+      }
+      book = {v:1, pockets: (Array.isArray(pockets) && pockets.length) ? pockets : book.pockets, txns: txns.map(t => structuredClone(t))};
+      saveLocal(); render(); if (dirty.size) flush();
+    }
+    setSync('cloud');
+  } catch (e){ setSync('local'); }
+}
+
+/* ---------- UI state ---------- */
+let view = 'home';
+let hist = {pocket:'all', month:'all', q:'', kind:'all'};
+let rep = {month: thisMonth(), pocket: 'salary'};
+let F = null;
+
+function go(v){ view = v; render(); window.scrollTo({top:0}); }
+document.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.nav === 'add') return openChooser();
+  go(b.dataset.nav);
+}));
+
+function render(){
+  document.querySelectorAll('nav [data-nav]').forEach(b => b.dataset.nav === 'add' ? null : b.setAttribute('aria-current', b.dataset.nav === view ? 'page' : 'false'));
+  const v = $('#view');
+  if (view === 'home') v.innerHTML = homeHTML();
+  else if (view === 'history') v.innerHTML = historyHTML();
+  else if (view === 'reports') v.innerHTML = reportsHTML();
+  else v.innerHTML = moreHTML();
+}
+
+/* ---------- Envelopes (home) ---------- */
+function homeHTML(){
+  const {P, debts} = compute();
+  const mine = book.pockets.filter(p => p.kind === 'mine').reduce((s, p) => s + (P[p.id]?.real || 0), 0);
+  const held = book.pockets.filter(p => p.kind === 'held').reduce((s, p) => s + (P[p.id]?.real || 0), 0);
+  const inHand = spendable().reduce((s, p) => s + (P[p.id]?.cash || 0), 0);
+  const lenders = book.pockets.filter(p => p.kind === 'lender');
+  let rows = `
+    <div class="row"><span>Your own money</span><b class="num ${mine < 0 ? 'neg' : ''}">${money(mine)}</b></div>
+    <div class="row"><span>Money you are holding for others</span><b class="num ${held < 0 ? 'neg' : ''}">${money(held)}</b></div>`;
+  lenders.forEach(l => {
+    const x = P[l.id] || {owed:0, owes:0};
+    const net = x.owed - x.owes;
+    if (net > 0.004) rows += `<div class="row"><span>You owe ${esc(l.name)}</span><b class="num neg">${money(net)}</b></div>`;
+    else if (net < -0.004) rows += `<div class="row"><span>${esc(l.name)} is keeping for you</span><b class="num">${money(-net)}</b></div>`;
+  });
+  rows += `<div class="row"><span>Cash in your hand right now</span><b class="num ${inHand < 0 ? 'neg' : ''}">${money(inHand)}</b></div>`;
+
+  const envs = book.pockets.map(p => {
+    const x = P[p.id] || {cash:0, owes:0, owed:0, real:0};
+    let big, lines;
+    if (p.kind === 'lender'){
+      const net = x.owed - x.owes;
+      big = `<div class="real num ${net > 0.004 ? 'neg' : ''}">${money(Math.abs(net))}</div>`;
+      lines = `<div><span>${net > 0.004 ? 'You owe' : net < -0.004 ? 'Keeping yours' : 'All settled'}</span><span></span></div>`;
+    } else {
+      big = `<div class="real num ${x.real < -0.004 ? 'neg' : ''}">${money(x.real)}</div>`;
+      lines = `<div><span>In hand</span><span class="num">${money(x.cash)}</span></div>`
+        + (x.owes > 0.004 ? `<div class="o"><span>Borrowed</span><span class="num">${money(x.owes)}</span></div>` : '')
+        + (x.owed > 0.004 ? `<div class="g"><span>Lent out</span><span class="num">${money(x.owed)}</span></div>` : '');
+    }
+    return `<button class="env" style="--pc:${esc(p.color)}" data-open-pocket="${esc(p.id)}" aria-label="${esc(p.name)} history">
+      <div class="flap"></div><div class="seal">${esc(p.emoji)}</div>
+      <div class="body"><div class="name">${esc(p.name)}</div>${big}<div class="lines">${lines}</div></div></button>`;
+  }).join('');
+
+  const debtRows = debts.map((d, i) => {
+    const a = PK(d.from), b = PK(d.to);
+    const label = a.kind === 'lender' ? `${esc(a.emoji)} <b>${esc(a.name)}</b> is keeping <b class="num">${money(d.amt)}</b> of ${esc(b.emoji)} ${esc(b.name)}`
+      : `${esc(a.emoji)} <b>${esc(a.name)}</b> owes ${esc(b.emoji)} <b>${esc(b.name)}</b> <b class="num">${money(d.amt)}</b>`;
+    return `<div class="debt"><div class="txt">${label}</div><button class="btn small" data-payback="${i}">${a.kind === 'lender' ? 'Take back' : 'Pay back'}</button></div>`;
+  }).join('');
+
+  const tips = [];
+  debts.forEach((d, i) => {
+    const a = PK(d.from), b = PK(d.to);
+    if (a.kind === 'lender') return;
+    const avail = P[d.from]?.cash || 0;
+    if (avail > 0.004){
+      const amt = Math.min(avail, d.amt);
+      tips.push(`<div class="tip"><p>${esc(a.name)} has <b class="num">${money(avail)}</b> in hand and still owes ${esc(b.name)} <b class="num">${money(d.amt)}</b>. Return <b class="num">${money(amt)}</b> now?</p><div><button class="btn small" data-tip-pay="${i}" data-amt="${amt}">Pay back ${money(amt)}</button></div></div>`);
+    }
+  });
+  book.pockets.filter(p => p.kind === 'held' && p.handover).forEach(p => {
+    const x = P[p.id]; if (x && x.real > 0.004)
+      tips.push(`<div class="tip"><p><b class="num">${money(x.real)}</b> of ${esc(p.name)} is still to be given to the ${esc(p.handover)}.</p><div><button class="btn small soft" data-handover="${esc(p.id)}">Record handover</button></div></div>`);
+  });
+
+  const noData = !book.txns.length;
+  const mNow = thisMonth();
+  const expRows = spendable().map(p => {
+    const list = book.txns.filter(t => t.t === 'out' && t.pocket === p.id && t.date.startsWith(mNow));
+    const tot = list.reduce((s, t) => s + t.amt, 0);
+    const other = list.filter(t => t.from !== p.id).reduce((s, t) => s + t.amt, 0);
+    return `<button class="list-row" data-exp="${esc(p.id)}"><div class="tx" style="padding:0;border:0"><div class="ic" style="--pc:${esc(p.color)}">${esc(p.emoji)}</div></div>
+      <div class="mid"><div>${esc(spendPlural(p))}</div><div class="t2">${list.length} records${other > 0.004 ? `, ${money(other)} paid with other money` : ''}</div></div><b class="num">${money(tot)}</b></button>`;
+  }).join('');
+  return `
+    <section class="panel summary" aria-label="Summary">${rows}</section>
+    ${noData ? `<div class="panel empty" style="margin-top:14px">Start by recording money you received or spent.<br><button class="btn" data-open-add>Add your first record</button></div>` : ''}
+    <h2>Expenses in ${monthLabel(mNow)}</h2>
+    <section class="panel">${expRows}</section>
+    <h2>Your envelopes</h2>
+    <div class="envs">${envs}</div>
+    ${tips.length ? `<h2>Things to do</h2><section class="panel">${tips.join('')}</section>` : ''}
+    <h2>Who owes whom</h2>
+    <section class="panel">${debtRows || `<div class="empty">Nothing borrowed. Every envelope is settled.</div>`}</section>`;
+}
+
+/* ---------- History ---------- */
+function describe(t){
+  const p = PK(t.pocket);
+  if (t.t === 'in') return {title: `Received in ${p.name}`, sub: t.person ? `From ${t.person}` : (t.note || 'Money came in'), cls:'in', sign:'+', p};
+  if (t.t === 'out'){
+    const f = PK(t.from);
+    let sub = spendName(p) + (t.person ? `, to ${t.person}` : '');
+    if (t.from !== t.pocket) sub += `, paid with ${f.name}`;
+    return {title: t.cat || spendName(p), sub, cls:'out', sign:'−', p};
+  }
+  const f = PK(t.from);
+  return {title: f.kind === 'lender' ? `Took back from ${f.name}` : `${f.name} paid back ${p.name}`, sub: t.note || 'Money moved between envelopes', cls:'mv', sign:'', p: f};
+}
+function historyHTML(){
+  const months = [...new Set(book.txns.map(t => t.date.slice(0, 7)))].sort().reverse();
+  const q = hist.q.trim().toLowerCase();
+  let list = book.txns.filter(t =>
+    (hist.pocket === 'all' || t.pocket === hist.pocket || t.from === hist.pocket) &&
+    (hist.kind === 'all' || (hist.kind === 'in' && t.t === 'in') || (hist.kind === 'back' && t.t === 'back') || (hist.kind === 'out:' + t.pocket && t.t === 'out')) &&
+    (hist.month === 'all' || t.date.startsWith(hist.month)) &&
+    (!q || [t.cat, t.person, t.note, PK(t.pocket).name, t.from ? PK(t.from).name : '', String(t.amt)].join(' ').toLowerCase().includes(q))
+  ).sort((a, b) => b.date.localeCompare(a.date) || (b.ts || 0) - (a.ts || 0));
+
+  let tin = 0, tout = 0;
+  list.forEach(t => { if (t.t === 'in') tin += t.amt; if (t.t === 'out') tout += t.amt; });
+
+  let body = '', lastDay = '', open = false;
+  list.forEach(t => {
+    if (t.date !== lastDay){ if (open) body += '</section>'; body += `<div class="dayhead">${esc(dayLabel(t.date))}</div><section class="panel">`; open = true; lastDay = t.date; }
+    const d = describe(t);
+    body += `<button class="tx" data-edit="${esc(t.id)}"><div class="ic" style="--pc:${esc(d.p.color)}">${esc(d.p.emoji)}</div>
+      <div class="mid"><div class="t1">${esc(d.title)}</div><div class="t2">${esc(d.sub)}</div></div>
+      <div class="amt num ${d.cls}">${d.sign}${money(t.amt)}</div></button>`;
+  });
+  if (open) body += '</section>';
+
+  const chips = [`<button class="chip" data-hp="all" aria-pressed="${hist.pocket === 'all'}">All</button>`]
+    .concat(book.pockets.map(p => `<button class="chip" data-hp="${esc(p.id)}" aria-pressed="${hist.pocket === p.id}">${esc(p.emoji)} ${esc(p.name)}</button>`)).join('');
+  return `
+    <h2 style="margin-top:8px">History</h2>
+    <div class="search">
+      <input class="f" id="hq" type="search" placeholder="Search name, note, amount" value="${esc(hist.q)}">
+      <select class="f" id="hm" aria-label="Month"><option value="all">All months</option>${months.map(m => `<option value="${m}" ${hist.month === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select>
+    </div>
+    <div class="filters" role="group" aria-label="Filter by record type">${[['all','Everything'],['in','Money in']].concat(spendable().map(p => ['out:' + p.id, spendPlural(p)])).concat([['back','Pay backs']]).map(([k, l]) => `<button class="chip" data-hk="${esc(k)}" aria-pressed="${hist.kind === k}">${esc(l)}</button>`).join('')}</div>
+    <div class="filters" role="group" aria-label="Filter by envelope">${chips}</div>
+    ${list.length ? `<div class="muted" style="font-size:14px;margin:4px 4px 0">${list.length} records. Came in <span class="num">${money(tin)}</span>, spent <span class="num">${money(tout)}</span></div>` : ''}
+    ${body || `<div class="panel empty" style="margin-top:10px">No records match. Try another filter or add a record.</div>`}`;
+}
+
+/* ---------- Reports ---------- */
+function reportsHTML(){
+  const months = [...new Set(book.txns.map(t => t.date.slice(0, 7)).concat([thisMonth()]))].sort().reverse();
+  const inMonth = book.txns.filter(t => t.date.startsWith(rep.month));
+  const rows = spendable().map(p => {
+    const i = inMonth.filter(t => t.t === 'in' && t.pocket === p.id).reduce((s, t) => s + t.amt, 0);
+    const o = inMonth.filter(t => t.t === 'out' && t.pocket === p.id).reduce((s, t) => s + t.amt, 0);
+    return `<tr><td>${esc(p.emoji)} ${esc(p.name)}</td><td class="num">${money(i)}</td><td class="num">${money(o)}</td></tr>`;
+  }).join('');
+
+  if (!spendable().some(p => p.id === rep.pocket)) rep.pocket = spendable()[0]?.id;
+  const rp = PK(rep.pocket);
+  const byCat = {};
+  inMonth.filter(t => t.t === 'out' && t.pocket === rep.pocket).forEach(t => { const k = t.cat || 'Other'; byCat[k] = (byCat[k] || 0) + t.amt; });
+  const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+  const max = cats.length ? cats[0][1] : 1;
+  const bars = cats.map(([k, v]) => `<div class="bar" style="--pc:${esc(rp.color)}"><div class="lbl"><span>${esc(k)}</span><span class="num">${money(v)}</span></div><div class="track"><div class="fill" style="width:${Math.max(3, v / max * 100)}%"></div></div></div>`).join('');
+
+  const people = {};
+  inMonth.filter(t => t.t === 'out' && t.person).forEach(t => { const k = t.person.trim(); people[k] = (people[k] || 0) + t.amt; });
+  const ppl = Object.entries(people).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<div class="debt"><div class="txt">${esc(k)}</div><b class="num">${money(v)}</b></div>`).join('');
+
+  const {P} = compute();
+  const handover = book.pockets.filter(p => p.kind === 'held').map(p => {
+    const given = book.txns.filter(t => t.t === 'out' && t.pocket === p.id).reduce((s, t) => s + t.amt, 0);
+    return `<tr><td>${esc(p.emoji)} ${esc(p.name)}</td><td class="num">${money(P[p.id]?.in || 0)}</td><td class="num">${money(given)}</td><td class="num">${money(P[p.id]?.real || 0)}</td></tr>`;
+  }).join('');
+
+  return `
+    <h2 style="margin-top:8px">Reports</h2>
+    <select class="f" id="rm" aria-label="Month">${months.map(m => `<option value="${m}" ${rep.month === m ? 'selected' : ''}>${monthLabel(m)}</option>`).join('')}</select>
+    <h2>Expenses this month</h2>
+    <section class="panel"><table class="rtable"><thead><tr><th>Expense</th><th>Paid from own envelope</th><th>Paid with other money</th><th>Total</th></tr></thead><tbody>${spendable().map(p => { const l = inMonth.filter(t => t.t === 'out' && t.pocket === p.id); const own = l.filter(t => t.from === p.id).reduce((s, t) => s + t.amt, 0), oth = l.filter(t => t.from !== p.id).reduce((s, t) => s + t.amt, 0); return `<tr><td>${esc(p.emoji)} ${esc(spendPlural(p))}</td><td class="num">${money(own)}</td><td class="num">${money(oth)}</td><td class="num"><b>${money(own + oth)}</b></td></tr>`; }).join('')}</tbody></table></section>
+    <h2>This month by envelope</h2>
+    <section class="panel"><table class="rtable"><thead><tr><th>Envelope</th><th>Came in</th><th>Spent</th></tr></thead><tbody>${rows}</tbody></table></section>
+    <h2>Where the money went</h2>
+    <div class="filters">${spendable().map(p => `<button class="chip" data-rp="${esc(p.id)}" aria-pressed="${rep.pocket === p.id}">${esc(p.emoji)} ${esc(spendPlural(p))}</button>`).join('')}</div>
+    <section class="panel" style="padding:6px 0">${bars || `<div class="empty">No ${esc(spendPlural(rp).toLowerCase())} this month.</div>`}</section>
+    <h2>Given to people this month</h2>
+    <section class="panel">${ppl || `<div class="empty">No names recorded this month. Add a name in "Paid to" when you give support.</div>`}</section>
+    <h2>Money held for others, all time</h2>
+    <section class="panel"><table class="rtable"><thead><tr><th>Envelope</th><th>Received</th><th>Used or given</th><th>Still with you</th></tr></thead><tbody>${handover}</tbody></table></section>`;
+}
+
+/* ---------- More ---------- */
+function moreHTML(){
+  const pockets = book.pockets.map(p => `<button class="list-row" data-edit-pocket="${esc(p.id)}"><div class="tx" style="padding:0;border:0"><div class="ic" style="--pc:${esc(p.color)}">${esc(p.emoji)}</div></div><div class="mid"><div>${esc(p.name)}</div><div class="t2">${esc(KIND_LABEL[p.kind])}. ${esc(p.note || '')}</div></div><span class="muted">Edit</span></button>`).join('');
+  return `
+    <h2 style="margin-top:8px">Envelopes</h2>
+    <section class="panel">${pockets}</section>
+    <button class="btn soft wide" style="margin-top:10px" data-new-pocket>Add an envelope</button>
+    <h2>How it works</h2>
+    <section class="panel" style="padding:4px 16px;font-size:15px">
+      <p><b>Money came in:</b> salary, donor money, scouting funds. It goes into its own envelope.</p>
+      <p><b>Expenses are kept separate:</b> personal expenses, scouting expenses, support given and Welfare Board submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a scouting trip), the app writes down that Scouting owes Home.</p>
+      <p><b>Pay back:</b> when funds arrive, the app offers to return what that envelope borrowed.</p>
+      <p><b>Real balance</b> (the big number) is what truly belongs to that envelope after borrowing and lending are counted.</p>
+    </section>
+    <h2>Backup</h2>
+    <section class="panel">
+      <button class="list-row" data-backup><div class="mid"><div>Download backup</div><div class="t2">A file with every record. Keep it safe.</div></div></button>
+      <button class="list-row" data-csv><div class="mid"><div>Download as spreadsheet (CSV)</div><div class="t2">Opens in Excel or Google Sheets</div></div></button>
+      <button class="list-row" data-restore><div class="mid"><div>Restore from backup</div><div class="t2">Replaces what is in the app now</div></div></button>
+    </section>
+    <h2>Danger zone</h2>
+    <button class="btn danger wide" data-clear>Delete all records</button>
+    <p class="help" style="text-align:center;margin:18px 0">${book.txns.length} records saved. ${cloud ? 'Stored privately in your account.' : 'Stored on this device.'}</p>`;
+}
+
+/* ---------- sheet / modal ---------- */
+let overlay = null;
+function showSheet(html, onClick){
+  closeSheet();
+  overlay = document.createElement('div'); overlay.className = 'overlay';
+  overlay.innerHTML = `<div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="content">${html}</div></div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeSheet(); });
+  if (onClick) overlay.querySelector('.sheet').addEventListener('click', onClick);
+  document.body.appendChild(overlay);
+  document.body.style.overflow = 'hidden';
+  const first = overlay.querySelector('input.amount, button'); if (first) setTimeout(() => first.focus({preventScroll:true}), 60);
+}
+function closeSheet(){ if (overlay){ overlay.remove(); overlay = null; document.body.style.overflow = ''; } }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+function confirmBox(title, text, yes, danger){
+  return new Promise(res => {
+    showSheet(`<h3>${esc(title)}</h3><p class="sub">${text}</p><div class="actions"><button class="btn soft" data-no>Cancel</button><button class="btn ${danger ? 'danger' : ''}" data-yes>${esc(yes)}</button></div>`,
+      e => { if (e.target.closest('[data-yes]')){ closeSheet(); res(true); } else if (e.target.closest('[data-no]')){ closeSheet(); res(false); } });
+  });
+}
+let toastT;
+function toast(msg){ let t = $('.toast'); if (!t){ t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+
+function openChooser(){
+  showSheet(`<h3>What happened?</h3><p class="sub">Pick one. You can change anything later.</p>
+    <button class="choice" data-choose="in"><div class="big">📥</div><div><b>Money came in</b><span>Salary, donor money, scouting funds, support money</span></div></button>
+    ${spendable().map(p => `<button class="choice" data-choose="out" data-pocket="${esc(p.id)}"><div class="big" style="box-shadow:inset 4px 0 0 ${esc(p.color)}">${esc(p.emoji)}</div><div><b>${esc(spendName(p))}</b><span>Paid out for ${esc(p.name)}, even if you used other money</span></div></button>`).join('')}
+    <button class="choice" data-choose="back"><div class="big">🔁</div><div><b>Pay back or move money</b><span>Return borrowed money, or give cash to Home to keep</span></div></button>`,
+    e => { const c = e.target.closest('[data-choose]'); if (c) openForm(c.dataset.choose, c.dataset.pocket ? {pocket: c.dataset.pocket} : {}); });
+}
+
+/* ---------- forms ---------- */
+function openForm(t, preset = {}){
+  const {debts} = compute();
+  F = Object.assign({t, id:null, pocket:null, from:null, amt:'', date:today(), cat:'', person:'', note:''}, preset);
+  const sp = spendable();
+  if (t === 'in' && !F.pocket) F.pocket = sp[0]?.id;
+  if (t === 'out'){ if (!F.pocket) F.pocket = sp[0]?.id; if (!F.from) F.from = F.pocket; }
+  if (t === 'back'){
+    if (!F.from){ const d = debts[0]; F.from = d ? d.from : sp[0]?.id; if (!F.pocket && d) F.pocket = d.to; }
+    if (!F.pocket) F.pocket = book.pockets.find(p => p.id !== F.from)?.id;
+  }
+  F.amt = F.amt === '' ? '' : String(F.amt);
+  drawForm();
+}
+function pocketChips(key, list){
+  return `<div class="chips" role="group">${list.map(p => `<button type="button" class="pchip" style="--pc:${esc(p.color)}" data-set="${key}" data-val="${esc(p.id)}" aria-pressed="${F[key] === p.id}">${esc(p.emoji)} ${esc(p.name)}</button>`).join('')}</div>`;
+}
+function explainText(){
+  const amt = parseFloat(F.amt) || 0, A = money(amt);
+  const {P, debts} = compute();
+  const editing = F.id ? book.txns.find(x => x.id === F.id) : null;
+  if (F.t === 'in') {
+    const p = PK(F.pocket); const owes = debts.filter(d => d.from === F.pocket);
+    let s = `${A} goes into ${esc(p.name)}.`;
+    if (owes.length && !F.id) s += ` It has borrowed money before. You'll be offered to pay it back after saving.`;
+    return s;
+  }
+  if (F.t === 'out'){
+    const p = PK(F.pocket), f = PK(F.from);
+    let s = `This counts as a <b>${esc(spendName(p))}</b>. `;
+    s += F.from === F.pocket ? `${A} comes out of ${esc(p.name)}.` : `${A} comes out of ${esc(f.name)} for now, but it is not ${f.kind === 'mine' ? 'your personal expense' : 'counted as ' + esc(spendName(f))}. ${esc(p.name)} will owe ${esc(f.name)} ${A} until you pay it back.`;
+    if (f.kind !== 'lender'){
+      let have = P[F.from]?.cash || 0;
+      if (editing && editing.from === F.from) have += editing.amt;
+      if (amt > have + 0.004) s += `<span class="w">${esc(f.name)} has only ${money(have)} in hand. Consider taking it from another envelope.</span>`;
+    }
+    return s;
+  }
+  const f = PK(F.from), p = PK(F.pocket);
+  const d = debts.find(x => x.from === F.from && x.to === F.pocket);
+  const r = debts.find(x => x.from === F.pocket && x.to === F.from);
+  let s = `${A} moves from ${esc(f.name)} to ${esc(p.name)}.`;
+  if (d) s += ` ${esc(f.name)} owes ${money(d.amt)}, so ${money(Math.max(0, d.amt - amt))} will be left to pay.`;
+  else if (r) s += ` This adds to what ${esc(f.name)} has lent ${esc(p.name)}.`;
+  else if (p.kind === 'lender') s += ` ${esc(p.name)} will be keeping this for you.`;
+  return s;
+}
+function drawForm(){
+  const T = {in:['Money came in','Which envelope is this money for?'], out:['Money spent',''], back:['Pay back or move money','']}[F.t];
+  const p = PK(F.pocket);
+  let h = `<h3>${F.id ? 'Edit record' : (F.t === 'out' ? esc(spendName(p)) : T[0])}</h3>`;
+  if (F.t === 'in'){
+    h += `<div class="field"><span class="lab">${T[1]}</span>${pocketChips('pocket', spendable())}</div>
+      <div class="field"><label for="fa">Amount (Rs)</label><input id="fa" class="f amount num" inputmode="decimal" type="number" min="0" step="any" value="${esc(F.amt)}" data-inp="amt" placeholder="0"></div>
+      <div class="field"><label for="fp">Received from</label><input id="fp" class="f" data-inp="person" value="${esc(F.person)}" placeholder="${p.kind === 'mine' ? 'e.g. Office' : 'e.g. donor name'}"></div>`;
+  } else if (F.t === 'out'){
+    h += `<div class="field"><span class="lab">What kind of expense?</span><div class="chips" role="group">${spendable().map(x => `<button type="button" class="pchip" style="--pc:${esc(x.color)}" data-set="pocket" data-val="${esc(x.id)}" aria-pressed="${F.pocket === x.id}">${esc(x.emoji)} ${esc(spendName(x))}</button>`).join('')}</div></div>
+      ${p.cats && p.cats.length ? `<div class="field"><span class="lab">Type of expense</span><div class="chips">${p.cats.map(c => `<button type="button" class="pchip" data-cat="${esc(c)}" aria-pressed="${F.cat === c}">${esc(c)}</button>`).join('')}</div></div>` : ''}
+      <div class="field"><label for="fa">Amount (Rs)</label><input id="fa" class="f amount num" inputmode="decimal" type="number" min="0" step="any" value="${esc(F.amt)}" data-inp="amt" placeholder="0"></div>
+      <div class="field"><span class="lab">Which money did you use?</span>${pocketChips('from', book.pockets)}<div class="help">Pick a different envelope if you paid with other money for now.</div></div>
+      <div class="field"><label for="fp">Paid to or given to</label><input id="fp" class="f" data-inp="person" value="${esc(F.person)}" placeholder="${p.kind === 'held' ? 'e.g. person who got support' : 'optional'}"></div>`;
+  } else {
+    const {debts} = compute();
+    const d = debts.find(x => x.from === F.from && x.to === F.pocket);
+    h += `<div class="field"><span class="lab">Money goes out of</span>${pocketChips('from', book.pockets)}</div>
+      <div class="field"><span class="lab">Money goes into</span>${pocketChips('pocket', book.pockets.filter(x => x.id !== F.from))}</div>
+      <div class="field"><label for="fa">Amount (Rs)</label><input id="fa" class="f amount num" inputmode="decimal" type="number" min="0" step="any" value="${esc(F.amt)}" data-inp="amt" placeholder="0">
+      ${d && !F.id ? `<button type="button" class="btn small soft" style="margin-top:8px" data-full="${d.amt}">Use full amount owed, ${money(d.amt)}</button>` : ''}</div>`;
+  }
+  h += `<div class="explain" id="explain">${explainText()}</div>
+    <div class="two field"><div><label for="fd">Date</label><input id="fd" class="f" type="date" value="${esc(F.date)}" data-inp="date"></div>
+    <div><label for="fn">Note</label><input id="fn" class="f" value="${esc(F.note)}" data-inp="note" placeholder="optional"></div></div>
+    <div class="actions">${F.id ? `<button class="btn danger" data-del>Delete</button>` : `<button class="btn soft" data-cancel>Cancel</button>`}<button class="btn" data-save>${F.id ? 'Save changes' : 'Save'}</button></div>`;
+
+  const keepAmtFocus = document.activeElement && document.activeElement.id === 'fa';
+  if (overlay && overlay.dataset.form){ overlay.querySelector('.content').innerHTML = h; }
+  else { showSheet(h, formClick); overlay.dataset.form = '1'; overlay.addEventListener('input', formInput); }
+  if (keepAmtFocus) $('#fa')?.focus();
+}
+function formInput(e){
+  const k = e.target.dataset.inp; if (!k || !F) return;
+  F[k] = e.target.value;
+  if (k === 'amt' || k === 'person') { const ex = $('#explain'); if (ex) ex.innerHTML = explainText(); }
+}
+function formClick(e){
+  const s = e.target.closest('[data-set]');
+  if (s){
+    const key = s.dataset.set, val = s.dataset.val;
+    if (F.t === 'out' && key === 'pocket'){ if (F.from === F.pocket) F.from = val; F.cat = ''; }
+    F[key] = val;
+    if (F.t === 'back' && F.pocket === F.from) F.pocket = book.pockets.find(p => p.id !== F.from)?.id;
+    return drawForm();
+  }
+  const c = e.target.closest('[data-cat]'); if (c){ F.cat = F.cat === c.dataset.cat ? '' : c.dataset.cat; return drawForm(); }
+  const full = e.target.closest('[data-full]'); if (full){ F.amt = String(Math.round(+full.dataset.full * 100) / 100); return drawForm(); }
+  if (e.target.closest('[data-cancel]')) return closeSheet();
+  if (e.target.closest('[data-save]')) return saveForm();
+  if (e.target.closest('[data-del]')) return deleteTxn(F.id);
+}
+function saveForm(){
+  const amt = parseFloat(F.amt);
+  if (!(amt > 0)) { toast('Enter an amount more than 0'); $('#fa')?.focus(); return; }
+  if (!F.pocket) return toast('Pick an envelope');
+  if (F.t === 'back' && F.from === F.pocket) return toast('Pick two different envelopes');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(F.date)) F.date = today();
+  const rec = {id: F.id || newId(), t: F.t, date: F.date, amt: Math.round(amt * 100) / 100, pocket: F.pocket,
+    from: F.t === 'in' ? null : F.from, cat: F.t === 'out' ? F.cat : '', person: (F.person || '').trim(), note: (F.note || '').trim(), ts: Date.now()};
+  let oldDate = null; const wasEdit = !!F.id;
+  if (wasEdit){ const i = book.txns.findIndex(x => x.id === F.id); if (i >= 0){ oldDate = book.txns[i].date; rec.ts = book.txns[i].ts || rec.ts; book.txns[i] = rec; } }
+  else book.txns.push(rec);
+  markDirty([rec.date, oldDate]);
+  F = null; closeSheet(); render();
+  toast(wasEdit ? 'Changes saved' : 'Saved');
+  if (rec.t === 'in' && !wasEdit) setTimeout(() => offerPayback(rec.pocket, rec.date), 280);
+}
+async function deleteTxn(id){
+  const t = book.txns.find(x => x.id === id); if (!t) return;
+  const ok = await confirmBox('Delete this record?', `${esc(describe(t).title)}, ${money(t.amt)}. Balances will be worked out again without it.`, 'Delete', true);
+  if (!ok) return openForm(t.t, {...t});
+  book.txns = book.txns.filter(x => x.id !== id);
+  markDirty([t.date]); render(); toast('Deleted');
+}
+
+/* ---------- automatic pay-back offer ---------- */
+function offerPayback(pid, date){
+  const {P, debts} = compute();
+  let avail = P[pid]?.cash || 0;
+  const ds = debts.filter(d => d.from === pid);
+  if (!ds.length || avail <= 0.004) return;
+  const p = PK(pid);
+  const rows = ds.map((d, i) => { const a = Math.min(d.amt, Math.max(0, avail)); avail -= a; const to = PK(d.to);
+    return `<div class="pb"><input type="checkbox" id="pb${i}" ${a > 0 ? 'checked' : ''} data-i="${i}"><label class="t" for="pb${i}">${esc(to.emoji)} ${esc(to.name)}<div class="help" style="margin:0">Owed ${money(d.amt)}</div></label><input class="f num" type="number" inputmode="decimal" min="0" step="any" value="${Math.round(a * 100) / 100}" data-a="${i}" aria-label="Amount to ${esc(to.name)}"></div>`; }).join('');
+  showSheet(`<h3>Pay back from ${esc(p.name)}?</h3><p class="sub">${esc(p.name)} borrowed from other envelopes earlier and now has ${money(P[pid].cash)} in hand. Choose what to return.</p>${rows}
+    <div class="actions"><button class="btn soft" data-later>Later</button><button class="btn" data-go>Pay back selected</button></div>`,
+    e => {
+      if (e.target.closest('[data-later]')) return closeSheet();
+      if (e.target.closest('[data-go]')){
+        let n = 0;
+        ds.forEach((d, i) => {
+          const on = overlay.querySelector(`[data-i="${i}"]`).checked;
+          const a = parseFloat(overlay.querySelector(`[data-a="${i}"]`).value);
+          if (on && a > 0){ book.txns.push({id:newId(), t:'back', date: date || today(), amt: Math.round(a * 100) / 100, pocket: d.to, from: pid, cat:'', person:'', note:'Paid back', ts: Date.now() + i}); n++; }
+        });
+        closeSheet();
+        if (n){ markDirty([date || today()]); render(); toast(n === 1 ? 'Paid back' : `${n} pay-backs saved`); }
+      }
+    });
+}
+
+/* ---------- pockets editor ---------- */
+function editPocket(id){
+  const isNew = !id;
+  const p = isNew ? {id:'', name:'', emoji:'📁', color:'#3C7F8C', kind:'held', note:'', cats:['Other']} : structuredClone(PK(id));
+  const used = !isNew && book.txns.some(t => t.pocket === id || t.from === id);
+  const colors = ['#2F8A57','#4556B0','#A7801E','#B2476B','#5E707A','#3C7F8C','#8A4FB0','#C0612B'];
+  showSheet(`<h3>${isNew ? 'New envelope' : 'Edit envelope'}</h3>
+    <div class="two field"><div><label for="pn">Name</label><input id="pn" class="f" value="${esc(p.name)}" placeholder="e.g. Eid Fund"></div>
+    <div><label for="pe">Icon</label><input id="pe" class="f" value="${esc(p.emoji)}" maxlength="4"></div></div>
+    <div class="field"><span class="lab">What kind of money?</span><div class="chips">${Object.entries(KIND_LABEL).map(([k, l]) => `<button type="button" class="pchip" data-kind="${k}" aria-pressed="${p.kind === k}">${l}</button>`).join('')}</div></div>
+    <div class="field"><span class="lab">Colour</span><div class="chips">${colors.map(c => `<button type="button" class="pchip" data-color="${c}" aria-pressed="${p.color === c}" aria-label="Colour ${c}" style="--pc:${c};width:40px;height:36px;background:${c}"></button>`).join('')}</div></div>
+    <div class="field"><label for="psp">Expense name</label><input id="psp" class="f" value="${esc(isNew ? '' : spendName(p))}" placeholder="e.g. Eid expense"></div>
+    <div class="field"><label for="pno">Short description</label><input id="pno" class="f" value="${esc(p.note || '')}"></div>
+    <div class="field"><label for="ph">Must be handed over to (optional)</label><input id="ph" class="f" value="${esc(p.handover || '')}" placeholder="e.g. Welfare Board"></div>
+    <div class="field"><label for="pc">Expense types, separated by commas</label><textarea id="pc" class="f" rows="2">${esc((p.cats || []).join(', '))}</textarea></div>
+    <div class="actions">${!isNew ? `<button class="btn danger" data-pdel ${used ? 'disabled title="In use"' : ''}>${used ? 'In use' : 'Delete'}</button>` : `<button class="btn soft" data-no>Cancel</button>`}<button class="btn" data-psave>Save</button></div>
+    ${used ? `<p class="help">This envelope has records, so it can be renamed but not deleted.</p>` : ''}`,
+    async e => {
+      const k = e.target.closest('[data-kind]'); if (k){ p.kind = k.dataset.kind; overlay.querySelectorAll('[data-kind]').forEach(b => b.setAttribute('aria-pressed', b === k)); return; }
+      const c = e.target.closest('[data-color]'); if (c){ p.color = c.dataset.color; overlay.querySelectorAll('[data-color]').forEach(b => b.setAttribute('aria-pressed', b === c)); return; }
+      if (e.target.closest('[data-no]')) return closeSheet();
+      if (e.target.closest('[data-psave]')){
+        const name = $('#pn').value.trim(); if (!name) return toast('Give the envelope a name');
+        Object.assign(p, {name, emoji: $('#pe').value.trim() || '📁', note: $('#pno').value.trim(), spend: $('#psp').value.trim(), handover: $('#ph').value.trim(), cats: $('#pc').value.split(',').map(s => s.trim()).filter(Boolean)});
+        if (!p.handover) delete p.handover; if (!p.spend) delete p.spend;
+        if (isNew){ p.id = 'p' + newId(); book.pockets.push(p); } else book.pockets[book.pockets.findIndex(x => x.id === id)] = p;
+        markDirty([], true); closeSheet(); render(); toast('Envelope saved');
+      }
+      if (e.target.closest('[data-pdel]') && !used){
+        closeSheet();
+        if (await confirmBox('Delete envelope?', `${esc(p.name)} will be removed.`, 'Delete', true)){ book.pockets = book.pockets.filter(x => x.id !== id); markDirty([], true); render(); }
+      }
+    });
+}
+
+/* ---------- backup ---------- */
+async function saveFile(filename, data, type){
+  try {
+    if (window.claude && window.claude.use){
+      const dl = await window.claude.use('downloads');
+      if (dl){ await dl.save({filename, data}); return; }
+    }
+  } catch (e){ if (e && e.code && e.code !== 'unavailable') return; }
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], {type})); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+  catch (e){ toast('Download is not available here'); }
+}
+function csvOf(){
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const typ = {in:'Came in', out:'Spent', back:'Pay back / move'};
+  const lines = [['Date','What','Envelope','Money used from','Type of expense','Person','Amount (Rs)','Note'].map(q).join(',')];
+  [...book.txns].sort((a, b) => a.date.localeCompare(b.date)).forEach(t => lines.push([t.date, t.t === 'out' ? spendName(PK(t.pocket)) : typ[t.t], PK(t.pocket).name, t.from ? PK(t.from).name : '', t.cat, t.person, t.amt, t.note].map(q).join(',')));
+  return '\ufeff' + lines.join('\r\n');
+}
+$('#importFile').addEventListener('change', e => {
+  const file = e.target.files[0]; e.target.value = ''; if (!file) return;
+  const r = new FileReader();
+  r.onload = async () => {
+    try {
+      const b = JSON.parse(r.result);
+      if (!b || !Array.isArray(b.pockets) || !Array.isArray(b.txns)) throw 0;
+      if (!await confirmBox('Restore this backup?', `It has ${b.txns.length} records. Everything in the app now will be replaced.`, 'Restore', true)) return;
+      const oldMonths = new Set([...knownDocs, ...book.txns.map(t => monthDoc(t.date))]);
+      book = {v:1, pockets: b.pockets, txns: b.txns};
+      oldMonths.forEach(k => k !== 'settings' && dirty.add(k));
+      markDirty(book.txns.map(t => t.date), true); render(); toast('Backup restored');
+    } catch (err){ toast('That file is not a Hisaab backup'); }
+  };
+  r.readAsText(file);
+});
+
+/* ---------- global clicks ---------- */
+document.addEventListener('click', async e => {
+  if (overlay && overlay.contains(e.target)) return;
+  const t = e.target;
+  const op = t.closest('[data-open-pocket]'); if (op){ hist = {pocket: op.dataset.openPocket, month:'all', q:'', kind:'all'}; return go('history'); }
+  if (t.closest('[data-open-add]')) return openChooser();
+  const pb = t.closest('[data-payback]');
+  if (pb){ const d = compute().debts[+pb.dataset.payback]; if (d) openForm('back', {from: d.from, pocket: d.to, amt: Math.round(d.amt * 100) / 100}); return; }
+  const tp = t.closest('[data-tip-pay]');
+  if (tp){ const d = compute().debts[+tp.dataset.tipPay]; if (d) openForm('back', {from: d.from, pocket: d.to, amt: Math.round(+tp.dataset.amt * 100) / 100}); return; }
+  const ho = t.closest('[data-handover]');
+  if (ho){ const p = PK(ho.dataset.handover); const x = compute().P[p.id]; openForm('out', {pocket: p.id, from: p.id, cat: (p.cats || []).find(c => /submit|hand/i.test(c)) || '', person: p.handover || '', amt: Math.round(x.real * 100) / 100}); return; }
+  const ed = t.closest('[data-edit]'); if (ed){ const x = book.txns.find(y => y.id === ed.dataset.edit); if (x) openForm(x.t, {...x}); return; }
+  const hk = t.closest('[data-hk]'); if (hk){ hist.kind = hk.dataset.hk; return render(); }
+  const ex = t.closest('[data-exp]'); if (ex){ hist = {pocket:'all', month: thisMonth(), q:'', kind: 'out:' + ex.dataset.exp}; return go('history'); }
+  const hp = t.closest('[data-hp]'); if (hp){ hist.pocket = hp.dataset.hp; return render(); }
+  const rp = t.closest('[data-rp]'); if (rp){ rep.pocket = rp.dataset.rp; return render(); }
+  const ep = t.closest('[data-edit-pocket]'); if (ep) return editPocket(ep.dataset.editPocket);
+  if (t.closest('[data-new-pocket]')) return editPocket(null);
+  if (t.closest('[data-backup]')) return saveFile(`hisaab-backup-${today()}.json`, JSON.stringify(book, null, 1), 'application/json');
+  if (t.closest('[data-csv]')) return saveFile(`hisaab-${today()}.csv`, csvOf(), 'text/csv');
+  if (t.closest('[data-restore]')) return $('#importFile').click();
+  if (t.closest('[data-clear]')){
+    if (!await confirmBox('Delete all records?', 'Every record will be removed. Your envelopes stay. Download a backup first if you might need them.', 'Delete everything', true)) return;
+    const months = new Set([...knownDocs, ...book.txns.map(x => monthDoc(x.date))]);
+    book.txns = []; months.forEach(k => k !== 'settings' && dirty.add(k)); markDirty([]); render(); toast('All records deleted');
+  }
+});
+let qT;
+document.addEventListener('input', e => {
+  if (e.target.id === 'hq'){ hist.q = e.target.value; clearTimeout(qT); qT = setTimeout(() => { const pos = e.target.selectionStart; render(); const el = $('#hq'); el.focus(); try { el.setSelectionRange(pos, pos); } catch(_){} }, 250); }
+});
+document.addEventListener('change', e => {
+  if (e.target.id === 'hm'){ hist.month = e.target.value; render(); }
+  if (e.target.id === 'rm'){ rep.month = e.target.value; render(); }
+});
+
+/* ---------- start ---------- */
+loadLocal();
+render();
+connect();
+</script>
+</body>
+</html>
