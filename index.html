@@ -192,7 +192,7 @@ const dayLabel = d => { const [y, m, dd] = d.split('-'); const dt = new Date(+y,
 const DEFAULT_POCKETS = [
   {id:'salary',  name:'My Salary',     emoji:'💼', color:'#2F8A57', kind:'mine',   note:'Your own money', spend:'My personal expense', cats:['Food','Transport','Bills','Shopping','Family','Health','Mobile & internet','Other']},
   {id:'donor',   name:'Donor Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the Welfare Board', spend:'Submitted to Welfare Board', handover:'Welfare Board', cats:['Submitted to Welfare Board','Other']},
-  {id:'scout',   name:'Scouting Fund', emoji:'⚜️', color:'#A7801E', kind:'held',   note:'Money for scouting work', spend:'Scouting expense', cats:['Camp','Uniform & badges','Travel','Food','Equipment','Event','Other']},
+  {id:'scout',   name:'SC Fund', emoji:'⚜️', color:'#A7801E', kind:'held',   note:'Money for SC work', spend:'SC expense', cats:['Camp','Uniform & badges','Travel','Food','Equipment','Event','Other']},
   {id:'support', name:'Support Fund',  emoji:'🫶', color:'#B2476B', kind:'held',   note:'From donors, to give to people in need', spend:'Support given to someone', cats:['Medical help','Education help','Ration','Cash help','Other']},
   {id:'home',    name:'Home Cash',     emoji:'🏠', color:'#5E707A', kind:'lender', note:'Family money you borrow and return', cats:[]}
 ];
@@ -204,7 +204,7 @@ function loadLocal(){ try { const raw = localStorage.getItem(LS); if (raw) { con
 function saveLocal(){ try { localStorage.setItem(LS, JSON.stringify(book)); } catch(e){} }
 
 const PK = id => book.pockets.find(p => p.id === id) || {id, name:'(removed)', emoji:'❔', color:'#888', kind:'held', cats:[]};
-const SPEND_DEFAULT = {salary:'My personal expense', donor:'Submitted to Welfare Board', scout:'Scouting expense', support:'Support given to someone'};
+const SPEND_DEFAULT = {salary:'My personal expense', donor:'Submitted to Welfare Board', scout:'SC expense', support:'Support given to someone'};
 const spendName = p => p.spend || SPEND_DEFAULT[p.id] || (p.name + ' expense');
 const spendPlural = p => { const n = spendName(p); return /expense$/i.test(n) ? n + 's' : n; };
 const spendable = () => book.pockets.filter(p => p.kind !== 'lender');
@@ -501,8 +501,8 @@ function moreHTML(){
     <button class="btn soft wide" style="margin-top:10px" data-new-pocket>Add an envelope</button>
     <h2>How it works</h2>
     <section class="panel" style="padding:4px 16px;font-size:15px">
-      <p><b>Money came in:</b> salary, donor money, scouting funds. It goes into its own envelope.</p>
-      <p><b>Expenses are kept separate:</b> personal expenses, scouting expenses, support given and Welfare Board submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a scouting trip), the app writes down that Scouting owes Home.</p>
+      <p><b>Money came in:</b> salary, donor money, SC funds. It goes into its own envelope.</p>
+      <p><b>Expenses are kept separate:</b> personal expenses, SC expenses, support given and Welfare Board submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a SC trip), the app writes down that SC owes Home.</p>
       <p><b>Pay back:</b> when funds arrive, the app offers to return what that envelope borrowed.</p>
       <p><b>Real balance</b> (the big number) is what truly belongs to that envelope after borrowing and lending are counted.</p>
     </section>
@@ -542,7 +542,7 @@ function toast(msg){ let t = $('.toast'); if (!t){ t = document.createElement('d
 
 function openChooser(){
   showSheet(`<h3>What happened?</h3><p class="sub">Pick one. You can change anything later.</p>
-    <button class="choice" data-choose="in"><div class="big">📥</div><div><b>Money came in</b><span>Salary, donor money, scouting funds, support money</span></div></button>
+    <button class="choice" data-choose="in"><div class="big">📥</div><div><b>Money came in</b><span>Salary, donor money, SC funds, support money</span></div></button>
     ${spendable().map(p => `<button class="choice" data-choose="out" data-pocket="${esc(p.id)}"><div class="big" style="box-shadow:inset 4px 0 0 ${esc(p.color)}">${esc(p.emoji)}</div><div><b>${esc(spendName(p))}</b><span>Paid out for ${esc(p.name)}, even if you used other money</span></div></button>`).join('')}
     <button class="choice" data-choose="back"><div class="big">🔁</div><div><b>Pay back or move money</b><span>Return borrowed money, or give cash to Home to keep</span></div></button>`,
     e => { const c = e.target.closest('[data-choose]'); if (c) openForm(c.dataset.choose, c.dataset.pocket ? {pocket: c.dataset.pocket} : {}); });
