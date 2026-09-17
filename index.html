@@ -191,9 +191,9 @@ const dayLabel = d => { const [y, m, dd] = d.split('-'); const dt = new Date(+y,
 /* ---------- data ---------- */
 const DEFAULT_POCKETS = [
   {id:'salary',  name:'My Salary',     emoji:'💼', color:'#2F8A57', kind:'mine',   note:'Your own money', spend:'My personal expense', cats:['Food','Transport','Bills','Shopping','Family','Health','Mobile & internet','Other']},
-  {id:'DN',   name:'DN Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the WB', spend:'Submitted to WB', handover:'WB', cats:['Submitted to WB','Other']},
+  {id:'donor',   name:'DN Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the WB', spend:'Submitted to WB', handover:'WB', cats:['Submitted to WB','Other']},
   {id:'scout',   name:'SC Fund', emoji:'⚜️', color:'#A7801E', kind:'held',   note:'Money for SC work', spend:'SC expense', cats:['Camp','Uniform & badges','Travel','Food','Equipment','Event','Other']},
-  {id:'SP', name:'SP Fund',  emoji:'🫶', color:'#B2476B', kind:'held',   note:'From DNs, to give to people in need', spend:'SP given to someone', cats:['Medical help','Education help','Ration','Cash help','Other']},
+  {id:'support', name:'SP Fund',  emoji:'🫶', color:'#B2476B', kind:'held',   note:'From DN, to give to people in need', spend:'SP given to someone', cats:['Medical help','Education help','Ration','Cash help','Other']},
   {id:'home',    name:'Home Cash',     emoji:'🏠', color:'#5E707A', kind:'lender', note:'Family money you borrow and return', cats:[]}
 ];
 const KIND_LABEL = {mine:'My own money', held:'Holding for others', lender:'I borrow from here'};
@@ -201,10 +201,18 @@ let book = {v:1, pockets: structuredClone(DEFAULT_POCKETS), txns: []};
 
 const LS = 'hisaab-book-v1';
 function loadLocal(){ try { const raw = localStorage.getItem(LS); if (raw) { const b = JSON.parse(raw); if (b && Array.isArray(b.pockets) && Array.isArray(b.txns)) book = b; } } catch(e){} }
+const RENAME = {'Donor Fund':'DN Fund','Scouting Fund':'SC Fund','Support Fund':'SP Fund','Welfare Board':'WB','Submitted to Welfare Board':'Submitted to WB','Scouting expense':'SC expense','Support given to someone':'SP given to someone','Must be submitted to the Welfare Board':'Must be submitted to the WB','Money for scouting work':'Money for SC work','From donors, to give to people in need':'From DN, to give to people in need'};
+function migrateNames(){
+  let changed = false; const fix = v => { if (typeof v === 'string' && RENAME[v]){ changed = true; return RENAME[v]; } return v; };
+  book.pockets.forEach(p => { ['name','note','spend','handover'].forEach(k => { if (p[k] !== undefined) p[k] = fix(p[k]); }); if (Array.isArray(p.cats)) p.cats = p.cats.map(fix); });
+  const months = new Set();
+  book.txns.forEach(t => { const c = fix(t.cat), per = fix(t.person); if (c !== t.cat || per !== t.person){ t.cat = c; t.person = per; months.add(t.date); } });
+  return {changed, months: [...months]};
+}
 function saveLocal(){ try { localStorage.setItem(LS, JSON.stringify(book)); } catch(e){} }
 
 const PK = id => book.pockets.find(p => p.id === id) || {id, name:'(removed)', emoji:'❔', color:'#888', kind:'held', cats:[]};
-const SPEND_DEFAULT = {salary:'My personal expense', DN:'Submitted to WB', scout:'SC expense', SP:'SP given to someone'};
+const SPEND_DEFAULT = {salary:'My personal expense', donor:'Submitted to WB', scout:'SC expense', support:'SP given to someone'};
 const spendName = p => p.spend || SPEND_DEFAULT[p.id] || (p.name + ' expense');
 const spendPlural = p => { const n = spendName(p); return /expense$/i.test(n) ? n + 's' : n; };
 const spendable = () => book.pockets.filter(p => p.kind !== 'lender');
@@ -292,6 +300,7 @@ async function connect(){
         book.txns.forEach(t => { if (!have.has(t.id)){ txns.push(t); dirty.add(monthDoc(t.date)); } });
       }
       book = {v:1, pockets: (Array.isArray(pockets) && pockets.length) ? pockets : book.pockets, txns: txns.map(t => structuredClone(t))};
+      { const m = migrateNames(); if (m.changed){ m.months.forEach(d => dirty.add(monthDoc(d))); dirty.add('settings'); } }
       saveLocal(); render(); if (dirty.size) flush();
     }
     setSync('cloud');
@@ -502,7 +511,7 @@ function moreHTML(){
     <h2>How it works</h2>
     <section class="panel" style="padding:4px 16px;font-size:15px">
       <p><b>Money came in:</b> salary, DN money, SC funds. It goes into its own envelope.</p>
-      <p><b>Expenses are kept separate:</b> personal expenses, SC expenses, SP given and WB submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a SC trip), the app writes down that SC owes Home.</p>
+      <p><b>Expenses are kept separate:</b> personal expenses, SC expenses, SP given and WB submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for an SC trip), the app writes down that SC owes Home.</p>
       <p><b>Pay back:</b> when funds arrive, the app offers to return what that envelope borrowed.</p>
       <p><b>Real balance</b> (the big number) is what truly belongs to that envelope after borrowing and lending are counted.</p>
     </section>
@@ -759,7 +768,7 @@ $('#importFile').addEventListener('change', e => {
       if (!b || !Array.isArray(b.pockets) || !Array.isArray(b.txns)) throw 0;
       if (!await confirmBox('Restore this backup?', `It has ${b.txns.length} records. Everything in the app now will be replaced.`, 'Restore', true)) return;
       const oldMonths = new Set([...knownDocs, ...book.txns.map(t => monthDoc(t.date))]);
-      book = {v:1, pockets: b.pockets, txns: b.txns};
+      book = {v:1, pockets: b.pockets, txns: b.txns}; migrateNames();
       oldMonths.forEach(k => k !== 'settings' && dirty.add(k));
       markDirty(book.txns.map(t => t.date), true); render(); toast('Backup restored');
     } catch (err){ toast('That file is not a Hisaab backup'); }
@@ -806,6 +815,7 @@ document.addEventListener('change', e => {
 
 /* ---------- start ---------- */
 loadLocal();
+{ const m = migrateNames(); if (m.changed) saveLocal(); }
 render();
 connect();
 </script>
