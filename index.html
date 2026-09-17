@@ -191,7 +191,7 @@ const dayLabel = d => { const [y, m, dd] = d.split('-'); const dt = new Date(+y,
 /* ---------- data ---------- */
 const DEFAULT_POCKETS = [
   {id:'salary',  name:'My Salary',     emoji:'💼', color:'#2F8A57', kind:'mine',   note:'Your own money', spend:'My personal expense', cats:['Food','Transport','Bills','Shopping','Family','Health','Mobile & internet','Other']},
-  {id:'DN',   name:'DN Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the Welfare Board', spend:'Submitted to Welfare Board', handover:'Welfare Board', cats:['Submitted to Welfare Board','Other']},
+  {id:'DN',   name:'DN Fund',    emoji:'🤲', color:'#4556B0', kind:'held',   note:'Must be submitted to the WB', spend:'Submitted to WB', handover:'WB', cats:['Submitted to WB','Other']},
   {id:'scout',   name:'SC Fund', emoji:'⚜️', color:'#A7801E', kind:'held',   note:'Money for SC work', spend:'SC expense', cats:['Camp','Uniform & badges','Travel','Food','Equipment','Event','Other']},
   {id:'support', name:'Support Fund',  emoji:'🫶', color:'#B2476B', kind:'held',   note:'From DNs, to give to people in need', spend:'Support given to someone', cats:['Medical help','Education help','Ration','Cash help','Other']},
   {id:'home',    name:'Home Cash',     emoji:'🏠', color:'#5E707A', kind:'lender', note:'Family money you borrow and return', cats:[]}
@@ -204,7 +204,7 @@ function loadLocal(){ try { const raw = localStorage.getItem(LS); if (raw) { con
 function saveLocal(){ try { localStorage.setItem(LS, JSON.stringify(book)); } catch(e){} }
 
 const PK = id => book.pockets.find(p => p.id === id) || {id, name:'(removed)', emoji:'❔', color:'#888', kind:'held', cats:[]};
-const SPEND_DEFAULT = {salary:'My personal expense', DN:'Submitted to Welfare Board', scout:'SC expense', support:'Support given to someone'};
+const SPEND_DEFAULT = {salary:'My personal expense', DN:'Submitted to WB', scout:'SC expense', support:'Support given to someone'};
 const spendName = p => p.spend || SPEND_DEFAULT[p.id] || (p.name + ' expense');
 const spendPlural = p => { const n = spendName(p); return /expense$/i.test(n) ? n + 's' : n; };
 const spendable = () => book.pockets.filter(p => p.kind !== 'lender');
@@ -502,7 +502,7 @@ function moreHTML(){
     <h2>How it works</h2>
     <section class="panel" style="padding:4px 16px;font-size:15px">
       <p><b>Money came in:</b> salary, DN money, SC funds. It goes into its own envelope.</p>
-      <p><b>Expenses are kept separate:</b> personal expenses, SC expenses, support given and Welfare Board submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a SC trip), the app writes down that SC owes Home.</p>
+      <p><b>Expenses are kept separate:</b> personal expenses, SC expenses, support given and WB submissions each have their own button, list and total. Then choose which money you actually used. If you used a different envelope (for example, Home Cash for a SC trip), the app writes down that SC owes Home.</p>
       <p><b>Pay back:</b> when funds arrive, the app offers to return what that envelope borrowed.</p>
       <p><b>Real balance</b> (the big number) is what truly belongs to that envelope after borrowing and lending are counted.</p>
     </section>
@@ -710,7 +710,7 @@ function editPocket(id){
     <div class="field"><span class="lab">Colour</span><div class="chips">${colors.map(c => `<button type="button" class="pchip" data-color="${c}" aria-pressed="${p.color === c}" aria-label="Colour ${c}" style="--pc:${c};width:40px;height:36px;background:${c}"></button>`).join('')}</div></div>
     <div class="field"><label for="psp">Expense name</label><input id="psp" class="f" value="${esc(isNew ? '' : spendName(p))}" placeholder="e.g. Eid expense"></div>
     <div class="field"><label for="pno">Short description</label><input id="pno" class="f" value="${esc(p.note || '')}"></div>
-    <div class="field"><label for="ph">Must be handed over to (optional)</label><input id="ph" class="f" value="${esc(p.handover || '')}" placeholder="e.g. Welfare Board"></div>
+    <div class="field"><label for="ph">Must be handed over to (optional)</label><input id="ph" class="f" value="${esc(p.handover || '')}" placeholder="e.g. WB"></div>
     <div class="field"><label for="pc">Expense types, separated by commas</label><textarea id="pc" class="f" rows="2">${esc((p.cats || []).join(', '))}</textarea></div>
     <div class="actions">${!isNew ? `<button class="btn danger" data-pdel ${used ? 'disabled title="In use"' : ''}>${used ? 'In use' : 'Delete'}</button>` : `<button class="btn soft" data-no>Cancel</button>`}<button class="btn" data-psave>Save</button></div>
     ${used ? `<p class="help">This envelope has records, so it can be renamed but not deleted.</p>` : ''}`,
