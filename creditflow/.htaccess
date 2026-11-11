@@ -1,0 +1,28 @@
+# CreditFlow web server rules (Apache). Upload this file with the app.
+
+# Always use HTTPS on the live site.
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Keep private folders and files out of reach of browsers.
+RedirectMatch 404 ^/?(.*/)?(db|docs|tests|\.git)(/|$)
+<FilesMatch "^(config(\.sample)?\.php|.*\.(sql|md|mjs|log))$">
+  Require all denied
+</FilesMatch>
+Options -Indexes
+
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "DENY"
+Header always set Referrer-Policy "no-referrer"
+Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" env=HTTPS
+Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'"
+</IfModule>
+
+AddType application/manifest+json .webmanifest
+AddType font/woff2 .woff2
