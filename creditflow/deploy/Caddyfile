@@ -1,6 +1,0 @@
-# Caddy gets and renews the HTTPS certificate for your domain by itself.
-# Replace the domain with yours, then: sudo cp Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
-creditflow.example.com {
-	encode zstd gzip
-	reverse_proxy 127.0.0.1:8080
-}

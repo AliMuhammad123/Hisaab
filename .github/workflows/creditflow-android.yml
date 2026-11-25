@@ -1,0 +1,73 @@
+# Builds the CreditFlow Android test app (APK) on GitHub's machines and checks the database rules.
+# Download the APK from the run's page: Actions > CreditFlow Android app > latest run > Artifacts.
+name: CreditFlow Android app
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/creditflow-app]
+    paths:
+      - 'creditflow/**'
+      - '.github/workflows/creditflow-android.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: creditflow-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database:
+    name: Check database privacy rules
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run checks
+        run: |
+          out=$(sh creditflow/supabase/tests/run.sh)
+          echo "$out"
+          echo "$out" | grep -q 'ALL CHECKS PASSED'
+
+  android:
+    name: Build test APK
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: creditflow
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: creditflow/package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Build APK
+        working-directory: creditflow/android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v6
+        with:
+          name: CreditFlow-test-app
+          path: creditflow/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+          if-no-files-found: error

@@ -9,11 +9,18 @@
     "node": ">=22.12"
   },
   "scripts": {
-    "start": "node server/index.js",
+    "build": "node scripts/build.mjs",
+    "build:test": "FAKE_SUPABASE=1 node scripts/build.mjs",
     "test": "node --test tests/*.test.js",
-    "test:api": "node tests/api.check.mjs"
+    "android": "npm run build && npx cap sync android"
   },
   "dependencies": {
-    "mysql2": "3.24.6"
+    "@capacitor/android": "8.6.0",
+    "@capacitor/core": "8.6.0",
+    "@supabase/supabase-js": "2.119.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.6.0",
+    "esbuild": "0.28.2"
   }
 }

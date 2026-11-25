@@ -1,8 +1,8 @@
 // Checks for the forecast and red-line maths. Run: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as F from '../server/lib/forecast.js';
-import { Money, V, isDate } from '../server/lib/http.js';
+import * as F from '../src/lib/forecast.js';
+import { Money, V, isDate } from '../src/lib/validate.js';
 
 const z = { mandatory: 0, savings: 0, investment: 0, entertainment: 0, other: 0 };
 const base = () => ({

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CreditFlow</string>
+    <string name="title_activity_main">CreditFlow</string>
+    <string name="package_name">com.alimuhammad.creditflow</string>
+    <string name="custom_url_scheme">com.alimuhammad.creditflow</string>
+</resources>

@@ -1,155 +1,111 @@
 # CreditFlow
 
-A private money app with two separate portals behind one account:
+An Android app where people manage and track their money, with two separate portals behind one account:
 
 - **Personal**: monthly income and plan, entries for bills, fun, other spending, savings, investment and investment returns, a stop screen when an entry crosses a limit, and a spending forecast.
 - **Business**: customers, credit given, payments received, credit limits and overdue tracking.
 
 Each user picks Personal, Business or Both, plus a country and currency.
 
-It is a Node.js server with a MySQL database. It has one outside package (`mysql2`, the MySQL driver, pinned to an exact version) and uses no outside services.
+There is no server to run. The app talks directly to **Supabase**, which stores the data and handles sign-in. The Android file is built by **GitHub** on its own machines.
 
-## Folder layout
+## 1. Set up Supabase (once, about 10 minutes)
 
-| Path | What it is |
-|---|---|
-| `public/` | The app's screens (HTML, CSS, JavaScript, font, icons). Only this folder is served to browsers |
-| `server/` | The server. `server/index.js` starts it |
-| `.env.sample` | Copy to `.env` and fill in your database details |
-| `db/schema.sql` | Creates the database tables |
-| `deploy/` | Ready-made settings for Caddy (HTTPS) and systemd (keeps the app running) |
-| `public/privacy.html` | Privacy policy. **Fill in the bracketed parts before launch** |
-| `tests/` | Automated checks |
+1. Create a free account at supabase.com and a **New project**. Choose a strong database password and the region closest to your users.
+2. Open **SQL Editor → New query**, paste everything from `supabase/schema.sql`, and press **Run**. It should finish with "Success. No rows returned".
+3. Open **Authentication → Sign In / Providers → Email**:
+   - **Confirm email**: on.
+   - **Minimum password length**: 10.
+4. Open **Authentication → Emails** and edit two templates so they contain the code, not only a link:
+   - **Confirm signup**, message body:
 
-## Put it online
+     ```
+     <h2>Your CreditFlow code</h2><p>Enter this code in the app to confirm your email: <strong>{{ .Token }}</strong></p>
+     ```
 
-You need a small Linux server (VPS), for example from Hetzner, DigitalOcean or Contabo, with Ubuntu 24.04 and a domain name pointed at it. The steps below assume Ubuntu.
+   - **Reset password**, message body:
 
-1. **Install the software**:
+     ```
+     <h2>Reset your CreditFlow password</h2><p>Enter this code in the app: <strong>{{ .Token }}</strong></p><p>If you did not ask for this, ignore this email.</p>
+     ```
 
-   ```bash
-   sudo apt update && sudo apt install -y mysql-server caddy
-   ```
+5. Open **Project Settings → API** (or **API Keys**) and copy two values:
+   - **Project URL**, like `https://abcdefghijk.supabase.co`
+   - the **anon** or **publishable** key
 
-   ```bash
-   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash - && sudo apt install -y nodejs
-   ```
+   Put them into `app.config.json`. These two values are meant to be inside the app: the database rules from step 2 are what keep data private.
 
-2. **Create the database** (replace `A_LONG_RANDOM_PASSWORD`; `openssl rand -base64 24` makes one):
+   **Never** use the `service_role` or `secret` key. It bypasses every privacy rule. The build refuses to run if it sees one.
 
-   ```bash
-   sudo mysql -e "CREATE DATABASE creditflow CHARACTER SET utf8mb4; CREATE USER 'creditflow'@'localhost' IDENTIFIED BY 'A_LONG_RANDOM_PASSWORD'; GRANT SELECT, INSERT, UPDATE, DELETE ON creditflow.* TO 'creditflow'@'localhost';"
-   ```
+**Emails while testing:** Supabase's built-in email service only sends to the email addresses of your Supabase team, a few per hour. That is enough to test with your own email. Before inviting other testers, connect a free email service (for example Brevo or Resend) under **Authentication → Emails → SMTP Settings**.
 
-   ```bash
-   sudo mysql creditflow < db/schema.sql
-   ```
+## 2. Get the test app on your phone
 
-   The app's database user can only read and change rows. It cannot drop tables or change the schema.
+Every change pushed to GitHub builds a new test app automatically.
 
-3. **Install the app** into `/opt/creditflow` under its own user:
+1. On GitHub, open the repository's **Actions** tab → **CreditFlow Android app** → the latest run with a green tick.
+2. Under **Artifacts**, download **CreditFlow-test-app** and unzip it. Inside is `app-debug.apk`.
+3. Send the APK to your Android phone and open it. Android asks you to allow installing from that source; allow it for this install.
 
-   ```bash
-   sudo useradd --system --home /opt/creditflow --shell /usr/sbin/nologin creditflow
-   ```
+To build again without a code change: **Actions → CreditFlow Android app → Run workflow**.
 
-   Copy this `creditflow` folder to `/opt/creditflow`, then:
+## 3. Publish on Google Play (after testing)
 
-   ```bash
-   cd /opt/creditflow && sudo npm ci --omit=dev
-   ```
-
-   ```bash
-   sudo cp .env.sample .env && sudo nano .env
-   ```
-
-   Enter the database password. Keep `SECURE_COOKIES=true` and `TRUST_PROXY=true`. Then lock the file:
-
-   ```bash
-   sudo chown -R root:creditflow /opt/creditflow && sudo chmod 640 /opt/creditflow/.env
-   ```
-
-4. **Start it and keep it running**:
-
-   ```bash
-   sudo cp deploy/creditflow.service /etc/systemd/system/ && sudo systemctl enable --now creditflow
-   ```
-
-5. **Turn on HTTPS**: edit `deploy/Caddyfile`, put your domain in place of `creditflow.example.com`, then:
-
-   ```bash
-   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
-   ```
-
-6. **Close everything else**: allow only SSH and web traffic.
-
-   ```bash
-   sudo ufw allow OpenSSH && sudo ufw allow 80,443/tcp && sudo ufw enable
-   ```
-
-Open your domain, create your account and add an entry.
-
-`.env` holds your database password. It is in `.gitignore`; never commit it.
+1. Create a Google Play developer account (one-time 25 USD fee, identity verification).
+2. Create an **upload key** and add it to GitHub as secrets, so GitHub can build the signed Play Store file (`.aab`). This step is not set up yet.
+3. In Play Console create the app with the package name `com.alimuhammad.creditflow`. **It can never change after the first upload.** If you want a different one, change `appId` in `capacitor.config.json` before then.
+4. Upload the `.aab` and fill in:
+   - **Privacy policy**: a public web address of `public/privacy.html`, with the bracketed parts filled in. GitHub Pages can host it for free.
+   - **Data safety**: collects name, email and financial info; encrypted in transit; users can delete their account; not shared with third parties; processed by Supabase.
+   - **Account deletion**: Settings → Delete my account.
+   - **Financial features declaration**: personal budgeting and bookkeeping; no loans, no payments processing.
+5. New personal developer accounts must run a closed test with testers before release. Check Play Console for the current rule.
 
 ## Security and privacy
 
-- **Private by design**: every table has a `user_id` and every query filters on the signed-in user. A user who asks for another user's record gets "not found".
-- **Passwords**: stored with scrypt (memory-hard, OWASP settings), never in readable form. Minimum 10 characters.
-- **Sessions**: a random 256-bit token in an `HttpOnly`, `Secure`, `SameSite=Strict` cookie with the `__Host-` prefix. Only its SHA-256 hash is stored. Changing the password signs out other devices.
-- **Sign-in protection**: 5 wrong passwords lock that email for 15 minutes; an IP is limited to 30 failures and 10 sign-ups in 15 minutes, and 300 requests a minute overall.
-- **Request forgery**: every change needs a per-session token header, requests from other websites are refused, and sign-in and sign-up need a custom header and a JSON body.
-- **SQL injection**: all queries use real server-side prepared statements.
-- **Script injection**: every value shown on screen is escaped, and a strict Content Security Policy allows scripts, styles and fonts from this site only.
-- **Files**: only `public/` is served. Server code, `.env`, the database schema and hidden files are never sent.
-- **Limits**: requests over 64 KB are refused; slow or stalled connections are cut off.
-- **No third parties**: no analytics, ads, CDNs or outside AI. The forecast runs on your own server.
-- **Locked-down service**: the systemd settings run the app as its own user with no special permissions and a read-only view of the system.
-- **User controls**: download all data and delete the account from Settings.
-- **Money**: stored as exact decimals and summed in whole minor units, never floating point.
+- **Private by design**: Row Level Security is on for every table, and each rule only allows the signed-in user's own rows. Composite keys stop anyone attaching their rows to someone else's customer or credit entry. Signed-out visitors can read nothing.
+- **Checked in the database**: amounts, dates, text lengths and "a payment cannot exceed what is owed" are enforced by the database, not only by the app.
+- **Sign-in**: handled by Supabase. Passwords are stored as one-way hashes, sign-in attempts are rate-limited, and new accounts confirm their email with a code.
+- **Account deletion** removes the account and every row it owns.
+- **On the phone**: app data is excluded from cloud backups and phone-to-phone transfers, plain-http traffic is blocked, and in the release build the screens cannot be inspected with debugging tools.
+- **In the app**: everything shown on screen is escaped, and a Content Security Policy only lets the app load its own files and talk to your Supabase project.
+- **No third parties**: no analytics, ads or outside AI. The forecast is calculated on the phone.
 
 Not included yet:
 
-- **Password reset by email** and **email verification**. These need an email-sending service. Until added, a user who forgets their password cannot get back in.
 - **Two-step sign-in** (a code from a phone app).
-- **Google sign-in**.
-- **Backups and encryption at rest**. Set up daily database backups (for example `mysqldump` to another location) and use your provider's disk encryption.
+- **Data download** for users.
+- **Signed Play Store build** (step 3 above).
 - Currencies with three decimal places (for example KWD, BHD) are rounded to two.
-
-Keep the server updated (`sudo apt update && sudo apt upgrade`) and check the app's package with `npm audit` from time to time.
 
 ## How the forecast and the stop work
 
-- **Stop (red lines)**: checked on the server when an entry is saved. An entry is refused when it would take the month above income, take a spending category above its limit, or leave too little for the savings and investment plan. The user sees a stop screen and can go back or save anyway; with **Hard stop** on (Plan screen) saving anyway is not offered. In Business, the same stop applies to a customer's credit limit.
-- **This month's forecast**: day-to-day spending is smoothed with an exponentially weighted average and blended with the pace of earlier months; unpaid bills are assumed at the planned amount. This gives the projected spend, a safe amount per day, and a status of on track, slow down, or heading over.
+- **Stop (red lines)**: when an entry is saved, the app refuses it if it would take the month above income, take a spending category above its limit, or leave too little for the savings and investment plan. The user sees a stop screen and can go back or save anyway; with **Hard stop** on (Plan screen) saving anyway is not offered. In Business, the same stop applies to a customer's credit limit.
+- **This month's forecast**: day-to-day spending is smoothed with an exponentially weighted average and blended with the pace of earlier months; unpaid bills are assumed at the planned amount.
 - **Next month's estimate**: a least-squares trend line through each category's totals for up to six earlier months.
 
-These are small statistical models fitted to the user's own entries. The code is in `server/lib/forecast.js`.
+The code is in `src/lib/forecast.js`.
 
-## Run the checks
+## For developers
+
+| Path | What it is |
+|---|---|
+| `src/` | The app's code. `src/data.js` reads and saves through Supabase |
+| `public/` | Page, styles, font, icons and privacy policy |
+| `supabase/schema.sql` | Tables and privacy rules |
+| `supabase/tests/` | Privacy checks for the database rules, run on a plain PostgreSQL |
+| `android/` | The Android project (Capacitor) |
+| `app.config.json` | Supabase address and public key |
+| `tests/` | Unit tests, and a stand-in for Supabase used to try the screens in a browser |
 
 ```bash
 npm ci && npm test
 ```
 
-The end-to-end checks need a throwaway MySQL database loaded with `db/schema.sql`. Put its details in `.env` with `SECURE_COOKIES=false`, then run `npm start` in one terminal and this in another:
-
 ```bash
-npm run test:api
+npm run build
 ```
 
-## Publishing on Google Play
-
-The app is an installable web app. Google Play accepts it wrapped as a Trusted Web Activity:
-
-1. Put the app online at its final HTTPS address.
-2. Create a Google Play developer account (one-time 25 USD fee, identity verification).
-3. Go to pwabuilder.com, enter your site address, choose **Package for stores → Android**, and download the package. It contains the `.aab` file to upload and an `assetlinks.json` file.
-4. Put that `assetlinks.json` in `public/.well-known/assetlinks.json`, so Android shows the app full-screen without a browser bar.
-5. In Play Console create the app, upload the `.aab`, and fill in:
-   - **Privacy policy**: the address of `privacy.html`, with the bracketed parts filled in.
-   - **Data safety**: collects name, email and financial info; encrypted in transit; users can request deletion; not shared with third parties.
-   - **Account deletion**: users delete their account in Settings → Delete my account. Google also asks for a web address explaining this; the privacy page covers it.
-   - **Financial features declaration**: personal budgeting and bookkeeping; no loans, no payments processing.
-6. New personal developer accounts must run a closed test with testers before production release. Check Play Console for the current rule.
+`npm run build:test` builds a copy into `www-test/` that uses a fake, in-browser Supabase (sign-up code is always 123456), for trying the screens without a project.
 
 The font is Figtree, used under the SIL Open Font License (`public/assets/fonts/OFL.txt`).
