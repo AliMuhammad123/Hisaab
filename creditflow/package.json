@@ -1,0 +1,19 @@
+{
+  "name": "creditflow",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private money app with separate personal and business portals.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test tests/*.test.js",
+    "test:api": "node tests/api.check.mjs"
+  },
+  "dependencies": {
+    "mysql2": "3.24.6"
+  }
+}

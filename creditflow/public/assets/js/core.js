@@ -39,7 +39,7 @@ export async function api(method, path, body) {
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   let res;
   try {
-    res = await fetch(`api/index.php${path}`, {
+    res = await fetch(`/api${path}`, {
       method,
       headers,
       credentials: 'same-origin',

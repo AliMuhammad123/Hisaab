@@ -1,6 +1,7 @@
-// End-to-end API checks. Run against a throwaway database:
-//   php -S 127.0.0.1:8080 -t .   then   node tests/api.test.mjs
-const BASE = process.env.BASE || 'http://127.0.0.1:8080/api/index.php';
+// End-to-end checks against a running server and a throwaway database:
+//   SECURE_COOKIES=false npm start   then   npm run test:api
+const ORIGIN = process.env.ORIGIN || 'http://127.0.0.1:8080';
+const BASE = `${ORIGIN}/api`;
 let pass = 0, fail = 0;
 const ok = (cond, name, extra = '') => { cond ? pass++ : fail++; console.log(`${cond ? 'PASS' : 'FAIL'}  ${name}${cond ? '' : '  ' + extra}`); };
 
@@ -173,6 +174,31 @@ r = await B.call('POST', '/me/delete', { password: 'another pass 22' });
 ok(r.status === 200, 'account deleted');
 r = await B.call('GET', '/auth/me');
 ok(r.status === 401, 'deleted account is signed out');
+
+
+// ---- web server hardening ----
+const raw = (path, init) => fetch(ORIGIN + path, init);
+r = await raw('/');
+ok(r.status === 200 && (r.headers.get('content-security-policy') || '').includes("script-src 'self'") && r.headers.get('x-frame-options') === 'DENY', 'app page has strict security headers');
+for (const p of ['/server/index.js', '/package.json', '/.env', '/.env.sample', '/db/schema.sql', '/node_modules/mysql2/package.json', '/%2e%2e/server/index.js', '/..%2fpackage.json', '/assets/../../package.json', '/.git/config']) {
+  r = await raw(p);
+  ok(r.status === 404 || r.status === 400, `private file is not served: ${p}`, r.status);
+}
+r = await raw('/assets/app.css');
+ok(r.status === 200 && r.headers.get('content-type').startsWith('text/css'), 'public files are served');
+r = await raw('/', { method: 'POST' });
+ok(r.status === 405, 'pages only accept GET');
+const big = client();
+r = await big.call('POST', '/auth/login', { email: 'x@example.com', password: 'y'.repeat(70000) });
+ok(r.status === 413, 'oversized request is refused');
+r = await raw('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'creditflow', Origin: 'https://evil.example' }, body: '{}' });
+ok(r.status === 403, 'request from another website is blocked');
+r = await raw('/api/auth/me', { headers: { 'Sec-Fetch-Site': 'cross-site' } });
+ok(r.status === 403, 'cross-site read is blocked');
+r = await raw('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'creditflow' }, body: '{"email":"a@b.co","password":"x",' });
+ok(r.status === 400, 'broken JSON is refused');
+r = await raw('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'creditflow' }, body: '{"__proto__":{"isAdmin":true},"email":"a@b.co","password":"wrong password"}' });
+ok(r.status === 401 && ({}).isAdmin === undefined, 'prototype pollution attempt has no effect');
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

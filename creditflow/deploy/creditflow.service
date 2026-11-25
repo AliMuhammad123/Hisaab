@@ -1,0 +1,41 @@
+# systemd service: keeps CreditFlow running and restarts it if it stops.
+# sudo cp creditflow.service /etc/systemd/system/ && sudo systemctl enable --now creditflow
+[Unit]
+Description=CreditFlow
+After=network-online.target mysql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=creditflow
+Group=creditflow
+WorkingDirectory=/opt/creditflow
+ExecStart=/usr/bin/node server/index.js
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=production
+
+# Lock the app down: it can read its own folder and nothing else of note.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+RestrictRealtime=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
